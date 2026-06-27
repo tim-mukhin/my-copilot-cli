@@ -4,12 +4,11 @@
 # Usage: paint.sh work|wait|idle
 # Stdin: the hook JSON payload (may contain sessionId, cwd).
 #
-# Shared by the sessionStart / postToolUse / notification / agentStop hooks.
-# The label itself is generated once per session by on-prompt.sh; here we only
-# resolve the cached label and repaint with the right status icon.
+# The label is the session's own name in workspace.yaml (set by label-gen.sh),
+# so it survives tab reloads / restarts. Here we only resolve it and repaint
+# with the right status icon.
 
 STATE="${1:-work}"
-
 case "$STATE" in
   work) ICON='⋯' ;;   # agent is working
   wait) ICON='⏸' ;;   # paused, waiting for the user (permission / question)
@@ -18,28 +17,26 @@ case "$STATE" in
 esac
 
 ROOT="$HOME/.copilot/tab-title"
-CACHE="$ROOT/cache"
-mkdir -p "$CACHE/labels" "$CACHE/tty" 2>/dev/null
+STATEDIR="$ROOT/state"
+SESSIONS="$HOME/.copilot/session-state"
+mkdir -p "$STATEDIR" 2>/dev/null
 
 INPUT=$(cat 2>/dev/null)
 
-# Resolve the controlling terminal. No tty -> nothing to paint.
-TTYDEV=$(tty </dev/tty 2>/dev/null)
-[ -z "$TTYDEV" ] || [ "$TTYDEV" = "not a tty" ] && exit 0
-TTYHASH=$(printf '%s' "$TTYDEV" | shasum 2>/dev/null | cut -d' ' -f1)
-[ -z "$TTYHASH" ] && exit 0
-
-# Remember the current status for this tab so a late-arriving label repaint
-# (from the background label generator) can reuse the right icon.
-printf '%s' "$STATE" > "$CACHE/tty/$TTYHASH.state" 2>/dev/null
-
-# Session id: prefer the payload, fall back to the per-tty pointer that
-# on-prompt.sh writes (sessionStart / agentStop payloads carry no sessionId).
+# Session id: payload first, then the env var the CLI exports to every
+# subprocess (the only source for sessionStart / agentStop payloads).
 SID=$(printf '%s' "$INPUT" | jq -r '.sessionId // empty' 2>/dev/null)
-[ -z "$SID" ] && SID=$(cat "$CACHE/tty/$TTYHASH.sid" 2>/dev/null)
+[ -z "$SID" ] && SID="$COPILOT_AGENT_SESSION_ID"
 
+# Remember the current status so a late label repaint reuses the right icon.
+[ -n "$SID" ] && printf '%s' "$STATE" > "$STATEDIR/$SID.icon" 2>/dev/null
+
+# Label = the session name (only when user_named, i.e. ours or a manual rename).
 LABEL=""
-[ -n "$SID" ] && [ -f "$CACHE/labels/$SID.txt" ] && LABEL=$(cat "$CACHE/labels/$SID.txt" 2>/dev/null)
+WS="$SESSIONS/$SID/workspace.yaml"
+if [ -n "$SID" ] && [ -f "$WS" ]; then
+  LABEL=$(python3 "$ROOT/set-session-name.py" --get "$WS" 2>/dev/null)
+fi
 
 # Fallback before a label exists: the working directory basename.
 if [ -z "$LABEL" ]; then

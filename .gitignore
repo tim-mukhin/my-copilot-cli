@@ -1,4 +1,5 @@
 # local runtime artifacts, never committed
-gen-home/
+gen-home*/
+state/
 cache/
 *.log

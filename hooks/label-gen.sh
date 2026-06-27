@@ -4,8 +4,9 @@
 # Args: <sessionId> <ttyDevice> <cwd> <prompt>
 #
 # Runs a one-shot `copilot -p` with the configured small model to turn the
-# user's first message into a short "emoji + 2-4 words" label, caches it, then
-# repaints the tab keeping whatever status icon the tab currently shows.
+# user's first message into a short "emoji + 2-4 words" label, stores it as the
+# session's own name in workspace.yaml (so it persists across reloads/restarts),
+# then repaints the tab keeping whatever status icon the tab currently shows.
 
 SID="$1"
 TTYDEV="$2"
@@ -13,23 +14,27 @@ CWD="$3"
 PROMPT="$4"
 
 ROOT="$HOME/.copilot/tab-title"
-CACHE="$ROOT/cache"
+STATEDIR="$ROOT/state"
 LOG="$ROOT/tab-title.log"
-mkdir -p "$CACHE/labels" "$CACHE/tty" 2>/dev/null
+WS="$HOME/.copilot/session-state/$SID/workspace.yaml"
+mkdir -p "$STATEDIR" 2>/dev/null
 
 log() { printf '%s [%s] %s\n' "$(date +%H:%M:%S)" "${SID:0:8}" "$1" >> "$LOG" 2>/dev/null; }
 
 [ -z "$SID" ] && exit 0
-[ -f "$CACHE/labels/$SID.txt" ] && exit 0   # already generated
+# Already named (race with another prompt or a manual /rename) -> nothing to do.
+[ -f "$WS" ] && [ -n "$(python3 "$ROOT/set-session-name.py" --get "$WS" 2>/dev/null)" ] && exit 0
 
 MODEL="${TAB_TITLE_MODEL:-claude-sonnet-4.5}"
 
 # Isolated copilot home: no MCP servers, no hooks (no recursion), no custom
-# instructions -> fast, cheap, and side-effect free. Auth lives in the OS
-# keychain on macOS, so the one-shot stays logged in.
-GENHOME="$ROOT/gen-home"
+# instructions -> fast and side-effect free. Auth lives in the OS keychain.
+# A unique home per invocation prevents crosstalk between concurrent label-gens
+# (e.g. first prompts in two terminals within the same ~10s window).
+GENHOME=$(mktemp -d "$ROOT/gen-home.XXXXXX" 2>/dev/null) || GENHOME="$ROOT/gen-home.$$"
 mkdir -p "$GENHOME" 2>/dev/null
 printf '%s' '{"mcpServers":{}}' > "$GENHOME/mcp-config.json" 2>/dev/null
+trap 'rm -rf "$GENHOME" 2>/dev/null' EXIT
 
 SYS='Extract a short label for this conversation. Output ONLY the label: an emoji + a 1-4 word description of the USER GOAL, in the language of the user message. No quotes, no markdown, no explanation. Max 30 chars. Describe what THEY want.'
 
@@ -45,16 +50,19 @@ if [ -z "$LABEL" ] || [ "${#LABEL}" -lt 2 ]; then
   log "empty label (model=$MODEL); raw=${RAW:0:120}"
   exit 1
 fi
-# Trim overly long labels (emoji-safe-ish byte cap).
 [ "${#LABEL}" -gt 48 ] && LABEL="${LABEL:0:48}"
 
-printf '%s' "$LABEL" > "$CACHE/labels/$SID.txt" 2>/dev/null
-log "label: $LABEL"
+# Persist as the session name (name + user_named:true) in the session store.
+if [ -f "$WS" ]; then
+  python3 "$ROOT/set-session-name.py" --set "$WS" "$LABEL" 2>>"$LOG" \
+    && log "name set: $LABEL" || log "name set FAILED: $LABEL"
+else
+  log "workspace.yaml not found yet: $WS (label=$LABEL)"
+fi
 
 # Repaint, reusing the tab's current status icon if we know it.
 [ -z "$TTYDEV" ] || [ "$TTYDEV" = "not a tty" ] && exit 0
-TTYHASH=$(printf '%s' "$TTYDEV" | shasum 2>/dev/null | cut -d' ' -f1)
-STATE=$(cat "$CACHE/tty/$TTYHASH.state" 2>/dev/null)
+STATE=$(cat "$STATEDIR/$SID.icon" 2>/dev/null)
 case "$STATE" in
   wait) ICON='⏸' ;;
   idle) ICON='✳' ;;

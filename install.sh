@@ -13,8 +13,8 @@ SETTINGS="$HOME/.copilot/settings.json"
 
 mkdir -p "$DEST" "$HOOKS"
 
-cp "$SRC/paint.sh" "$SRC/on-prompt.sh" "$SRC/label-gen.sh" "$DEST/"
-chmod +x "$DEST/paint.sh" "$DEST/on-prompt.sh" "$DEST/label-gen.sh"
+cp "$SRC/paint.sh" "$SRC/on-prompt.sh" "$SRC/label-gen.sh" "$SRC/set-session-name.py" "$DEST/"
+chmod +x "$DEST/paint.sh" "$DEST/on-prompt.sh" "$DEST/label-gen.sh" "$DEST/set-session-name.py"
 cp "$SRC/tab-title.json" "$HOOKS/tab-title.json"
 
 # Turn off Copilot's built-in terminal title writer (otherwise it overwrites ours).
