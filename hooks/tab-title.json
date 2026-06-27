@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      { "type": "command", "bash": "$HOME/.copilot/tab-title/paint.sh idle" }
+    ],
+    "userPromptSubmitted": [
+      { "type": "command", "bash": "$HOME/.copilot/tab-title/on-prompt.sh" }
+    ],
+    "postToolUse": [
+      { "type": "command", "bash": "$HOME/.copilot/tab-title/paint.sh work" }
+    ],
+    "notification": [
+      { "type": "command", "matcher": "permission_prompt|elicitation_dialog", "bash": "$HOME/.copilot/tab-title/paint.sh wait" }
+    ],
+    "agentStop": [
+      { "type": "command", "bash": "$HOME/.copilot/tab-title/paint.sh idle" }
+    ]
+  }
+}
