@@ -8,10 +8,10 @@ and [`my-oh-my-pi`](https://github.com/tim-mukhin/my-oh-my-pi) (opencode / omp /
 same idea, another host.
 
 ```
-⋯ 🪝 настройка вебхуков GitHub   <- agent is working
-⏸ 🪝 настройка вебхуков GitHub   <- paused, waiting for you (permission / question)
-✳ 🪝 настройка вебхуков GitHub   <- idle, ready for input
-⋯ work-brain                     <- right after start, before the label is generated
+⋯ 🪝 GitHub webhooks setup   <- agent is working
+⏸ 🪝 GitHub webhooks setup   <- paused, waiting for you (permission / question)
+✳ 🪝 GitHub webhooks setup   <- idle, ready for input
+⋯ my-project                 <- right after start, before the label is generated
 ```
 
 Status icons:
