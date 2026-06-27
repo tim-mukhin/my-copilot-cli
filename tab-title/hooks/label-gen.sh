@@ -25,6 +25,8 @@ log() { printf '%s [%s] %s\n' "$(date +%H:%M:%S)" "${SID:0:8}" "$1" >> "$LOG" 2>
 # Already named (race with another prompt or a manual /rename) -> nothing to do.
 [ -f "$WS" ] && [ -n "$(python3 "$ROOT/set-session-name.py" --get "$WS" 2>/dev/null)" ] && exit 0
 
+# Model used to generate the tab label. Set this default to a model YOU have
+# access to, or override per-shell with `export TAB_TITLE_MODEL=...`.
 MODEL="${TAB_TITLE_MODEL:-claude-sonnet-4.5}"
 
 # Isolated copilot home: no MCP servers, no hooks (no recursion), no custom
